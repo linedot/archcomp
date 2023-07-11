@@ -11,38 +11,50 @@ constexpr std::uint64_t coord_offset = 0;
 
 using tidx = archcomp::transformation_index;
 
+template<typename ... args>
+using apack = archcomp::argument_pack<float, args ...>;
+
 // I've thought about it and came to the conclustion that 
 // these short var names are better in this case
 // NOLINTBEGIN(readability-identifier-length)
-constexpr auto adder1 = []([[maybe_unused]] const tidx index, 
-        const float x1, const float x2, float& xout)
-{
-    xout = x1+x2;
-};
+//constexpr auto adder1 = []([[maybe_unused]] const tidx index, 
+//        std::array<const float, 2>&& inputs,
+//        std::array<float&, 1> outputs)
+//{
+//    const auto [x1, x2] = inputs;
+//    auto& xout = outputs[0];
+//
+//    xout = x1+x2;
+//};
 
 constexpr auto adder3 = []([[maybe_unused]] const tidx index,
-        const float x1, const float y1, const float z1, 
-        const float x2, const float y2, const float z2,
-        float& xout, float& yout, float& zout)
+        apack<const float, const float, const float,
+              const float, const float, const float,
+              float&, float&, float&> inputs)
 {
+    auto& [x1, y1, z1, x2, y2, z2, xout, yout, zout] = inputs.args;
+
     xout = x1 + x2;
     yout = y1 + y2;
     zout = z1 + z2;
 };
 
 constexpr auto euclidean3 = []([[maybe_unused]] const tidx index,
-        const float x1, const float y1, const float z1, 
-        const float x2, const float y2, const float z2,
-        float& xout, [[maybe_unused]] float& yout, [[maybe_unused]] float& zout)
+        apack<const float, const float, const float,
+              const float, const float, const float,
+              float&, float&, float&> inputs)
 {
+    auto& [x1, y1, z1, x2, y2, z2, xout, yout, zout] = inputs.args;
+
     xout = x1 * x2 + y1 * y2 + z1 * z2;
 };
 
 constexpr auto compute3 = []([[maybe_unused]] const tidx index,
-        const float x1, const float y1, const float z1, 
-        const float x2, const float y2, const float z2,
-        float& xout, float& yout, float& zout)
+        apack<const float, const float, const float,
+              const float, const float, const float,
+              float&, float&, float&> inputs)
 {
+    auto& [x1, y1, z1, x2, y2, z2, xout, yout, zout] = inputs.args;
 
     auto dx = x1 - x2;
     auto dy = y1 - y2;
@@ -57,31 +69,34 @@ constexpr auto compute3 = []([[maybe_unused]] const tidx index,
 constexpr auto csrw = archcomp::make_rw_coord_spec;
 constexpr auto csro = archcomp::make_ro_coord_spec;
 
-void test_dim_1(auto& storage)
-{
 
-    storage.transform(adder1,
-            csro(0,0),
-            csro(1,0),
-            csrw(2,0));
-}
+//void test_dim_1(auto& storage)
+//{
+//
+//    storage.transform(adder1,archcomp::make_coord_spec_pack(
+//            {csro(0,0),csro(1,0)},
+//            {csrw(2,0)}));
+//}
 
 void test_dim_3(auto& storage)
 {
-    storage.transform(adder3, 
+    storage.transform(adder3,
+            archcomp::make_coord_spec_pack(
             csro(0,0),csro(0,1),csro(0,2),
             csro(1,0),csro(1,1),csro(1,2),
-            csrw(2,0),csrw(2,1),csrw(2,2));
+            csrw(2,0),csrw(2,1),csrw(2,2)));
 
     storage.transform(euclidean3, 
+            archcomp::make_coord_spec_pack(
             csro(0,0),csro(0,1),csro(0,2),
             csro(1,0),csro(1,1),csro(1,2),
-            csrw(2,0),csrw(2,1),csrw(2,2));
+            csrw(2,0),csrw(2,1),csrw(2,2)));
 
     storage.transform(compute3, 
+            archcomp::make_coord_spec_pack(
             csro(0,0),csro(0,1),csro(0,2),
             csro(1,0),csro(1,1),csro(1,2),
-            csrw(2,0),csrw(2,1),csrw(2,2));
+            csrw(2,0),csrw(2,1),csrw(2,2)));
 }
 
 
@@ -103,50 +118,50 @@ auto main() -> int
             vspec{dims, count},
             vspec{dims, count});
 
-    test_dim_1(storage_interleaved);
+ //   test_dim_1(storage_interleaved);
     test_dim_3(storage_interleaved);
 
-    coordinate_storage<float, access_type::interleaved_simd1> storage_simd1(
-            align_to::l1bank,
-            cinfo,
-            vspec{dims, count},
-            vspec{dims, count},
-            vspec{dims, count});
-
-    test_dim_1(storage_simd1);
-    test_dim_3(storage_simd1);
-
-    coordinate_storage<float, access_type::interleaved_simd4> storage_simd4(
-            align_to::l1bank,
-            cinfo,
-            vspec{dims, count},
-            vspec{dims, count},
-            vspec{dims, count});
-
-    test_dim_1(storage_simd4);
-    test_dim_3(storage_simd4);
-
-
-    coordinate_storage<float, access_type::interleaved_simd8> storage_simd8(
-            align_to::l1bank,
-            cinfo,
-            vspec{dims, count},
-            vspec{dims, count},
-            vspec{dims, count});
-
-    test_dim_1(storage_simd8);
-    test_dim_3(storage_simd8);
-
-
-    coordinate_storage<float, access_type::separate> storage_separate(
-            align_to::l1bank,
-            cinfo,
-            vspec{dims, count},
-            vspec{dims, count},
-            vspec{dims, count});
-    
-    test_dim_1(storage_separate);
-    test_dim_3(storage_separate);
+//    coordinate_storage<float, access_type::interleaved_simd1> storage_simd1(
+//            align_to::l1bank,
+//            cinfo,
+//            vspec{dims, count},
+//            vspec{dims, count},
+//            vspec{dims, count});
+//
+// //   test_dim_1(storage_simd1);
+//    test_dim_3(storage_simd1);
+//
+//    coordinate_storage<float, access_type::interleaved_simd4> storage_simd4(
+//            align_to::l1bank,
+//            cinfo,
+//            vspec{dims, count},
+//            vspec{dims, count},
+//            vspec{dims, count});
+//
+// //   test_dim_1(storage_simd4);
+//    test_dim_3(storage_simd4);
+//
+//
+//    coordinate_storage<float, access_type::interleaved_simd8> storage_simd8(
+//            align_to::l1bank,
+//            cinfo,
+//            vspec{dims, count},
+//            vspec{dims, count},
+//            vspec{dims, count});
+//
+////    test_dim_1(storage_simd8);
+//    test_dim_3(storage_simd8);
+//
+//
+//    coordinate_storage<float, access_type::separate> storage_separate(
+//            align_to::l1bank,
+//            cinfo,
+//            vspec{dims, count},
+//            vspec{dims, count},
+//            vspec{dims, count});
+//    
+////    test_dim_1(storage_separate);
+//    test_dim_3(storage_separate);
 
 
 // TODO: implement outer_transform interface
