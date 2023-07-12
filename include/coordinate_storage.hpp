@@ -410,7 +410,7 @@ public:
             // (the C++17 answer)
             auto get_pointers = [&pools,this] (auto&& ... specs)
             {
-                return std::tuple{std::forward<scalar*>(
+                return std::tuple{std::forward<scalar * __restrict__>(
                         &pools[
                         pool_idx_calc(
                             specs.vector_id,
@@ -427,18 +427,17 @@ public:
                 #pragma omp unroll
                 for(std::size_t j = 0; j < divisible_by; j++)
                 {
-                    auto pointer_generator = [i,j,this](auto spec, scalar* ptr)
-                        -> scalar*
+                    auto pointer_generator = [i,j,this](auto spec, scalar * __restrict__ ptr)
+                        -> scalar * __restrict__
                     {
                         return (ptr+(i*j)*dims[spec.vector_id]);
                     };
-                    value_pack_type args = coord_spec_pack_type::template scalar_args<scalar>::construct(
+                    func(transformation_index{i+j},
+                            coord_spec_pack_type::template scalar_args<scalar>::construct(
                             pointer_generator,
                             coord_spec_pack.values,
                             pointers
-                            );
-
-                    func(transformation_index{i+j}, args);
+                            ));
                 }
             }
             break;
@@ -455,7 +454,7 @@ public:
                 auto get_pointers = [&pools,block_id,block_size,block_start,this]
                     (auto&& ... specs)
                 {
-                    return std::tuple{std::forward<scalar*>(
+                    return std::tuple{std::forward<scalar * __restrict__>(
                             &pools[
                             pool_idx_calc(
                                 specs.vector_id,
@@ -474,8 +473,8 @@ public:
                 for(std::size_t i = 0; i < block_size; i++)
                 {
 
-                    auto pointer_generator = [i,this](auto spec, scalar* ptr)
-                        -> scalar*
+                    auto pointer_generator = [i,this](auto spec, scalar * __restrict__ ptr)
+                        -> scalar * __restrict__
                     {
                         return (ptr+i);
                     };
@@ -494,7 +493,7 @@ public:
         {
             auto get_pointers = [&pools,this] (auto&& ... specs)
             {
-                return std::tuple{std::forward<scalar*>(
+                return std::tuple{std::forward<scalar * __restrict__>(
                         &pools[
                         pool_idx_calc(
                             specs.vector_id,
@@ -518,8 +517,8 @@ public:
                 for(std::size_t j = i; j < i+divisible_by; j++)
                 {
 
-                    auto pointer_generator = [j,this](auto spec, scalar* ptr)
-                        -> scalar*
+                    auto pointer_generator = [j,this](auto spec, scalar * __restrict__ ptr)
+                        -> scalar * __restrict__
                     {
                         return (ptr+j);
                     };

@@ -17,15 +17,15 @@ using apack = archcomp::argument_pack<float, args ...>;
 // I've thought about it and came to the conclustion that 
 // these short var names are better in this case
 // NOLINTBEGIN(readability-identifier-length)
-//constexpr auto adder1 = []([[maybe_unused]] const tidx index, 
-//        std::array<const float, 2>&& inputs,
-//        std::array<float&, 1> outputs)
-//{
-//    const auto [x1, x2] = inputs;
-//    auto& xout = outputs[0];
-//
-//    xout = x1+x2;
-//};
+
+constexpr auto adder1 = []([[maybe_unused]] const tidx index,
+        apack<const float, const float,
+              float&> inputs)
+{
+    auto& [x1, x2, xout] = inputs.args;
+
+    xout = x1 + x2;
+};
 
 constexpr auto adder3 = []([[maybe_unused]] const tidx index,
         apack<const float, const float, const float,
@@ -70,13 +70,13 @@ constexpr auto csrw = archcomp::make_rw_coord_spec;
 constexpr auto csro = archcomp::make_ro_coord_spec;
 
 
-//void test_dim_1(auto& storage)
-//{
-//
-//    storage.transform(adder1,archcomp::make_coord_spec_pack(
-//            {csro(0,0),csro(1,0)},
-//            {csrw(2,0)}));
-//}
+void test_dim_1(auto& storage)
+{
+
+    storage.transform(adder1,
+            archcomp::make_coord_spec_pack(
+            csro(0,0),csro(1,0),csrw(2,0)));
+}
 
 void test_dim_3(auto& storage)
 {
