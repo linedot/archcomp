@@ -1,18 +1,19 @@
+#include <cache_util.hpp>
+//#include <compiler_hints.hpp>
+#include <dynamic_aligned_allocator.hpp>
+#include <simd_util.hpp>
+
+#include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <initializer_list>
+//#include <initializer_list>
+//#include <map>
+//#include <numeric>
+#include <stdexcept>
+#include <tuple>
 #include <type_traits>
-#include <numeric>
 #include <utility>
 #include <vector>
-#include <map>
-
-#include <cache_util.hpp>
-#include <simd_util.hpp>
-#include <dynamic_aligned_allocator.hpp>
-#include <compiler_hints.hpp>
-
-#include <fmt/format-inl.h>
 
 namespace archcomp
 {
@@ -257,15 +258,13 @@ public:
             if (0 != (std::get<1>(spec) % divisible_by))
             {
                 throw std::invalid_argument(
-                        fmt::format(
-                        "Element count is not a multiple of {}", divisible_by));
+                        "Element count is not a multiple of divisible_by");
             }
 
             if (0 != (std::get<1>(spec) % dynamic_divisible_by))
             {
                 throw std::invalid_argument(
-                        fmt::format(
-                        "Element count is not a multiple of {}", dynamic_divisible_by));
+                        "Element count is not a multiple of dynamic_divisible_by");
             }
 
             switch(coordinate_access_type)

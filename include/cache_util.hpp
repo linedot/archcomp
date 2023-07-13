@@ -1,3 +1,6 @@
+#ifndef ARCHCOMP_CACHE_UTIL
+#define ARCHCOMP_CACHE_UTIL
+
 #include <cstdint>
 #include <string>
 #include <stdexcept>
@@ -95,3 +98,5 @@ private:
 };
 
 } //namespace archcomp
+
+#endif // ARCHCOMP_CACHE_UTIL
