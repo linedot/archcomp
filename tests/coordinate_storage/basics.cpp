@@ -7,7 +7,7 @@
 
 #include "common.hpp"
 
-int main()
+auto main() -> int
 {
     using namespace boost::ext::ut;
     using archcomp::cache_info;
@@ -24,11 +24,11 @@ int main()
     using test_cs::with_align_type;
     using test_cs::with_data_type;
 
-    cache_info cinfo;
 
     // shouldn't be able to create empty storages
-    "coordinate_storage_create_empty"_test = [&cinfo]()
+    "coordinate_storage_create_empty"_test = []()
     {
+        cache_info cinfo;
 
 
         // Test creating empty storage
@@ -58,10 +58,9 @@ int main()
 
     };
 
-    "coordinate_storage_create_small"_test = [&cinfo]()
+    "coordinate_storage_create_small"_test = []()
     {
-
-
+        cache_info cinfo;
 
         // Test creating empty storage
         auto test_empty_storage_creation = [&cinfo]

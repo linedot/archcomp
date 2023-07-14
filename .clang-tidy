@@ -1,9 +1,5 @@
-bugprone-*
-clang-analyzer-*
-concurrency-*
-cppcoreguidelines-*
-misc-*
-modernize-*
-openmp-*
-performance-*
-readability-*
+---
+Checks:          'bugprone-*,clang-analyzer-*,concurrency-*,cppcoreguidelines-*,misc-*,modernize-*,openmp-*,performance-*,readability-*'
+WarningsAsErrors: true
+HeaderFilterRegex: ''
+...

@@ -13,7 +13,7 @@ using tidx = archcomp::transformation_index;
 constexpr auto csrw = archcomp::make_rw_coord_spec;
 constexpr auto csro = archcomp::make_ro_coord_spec;
 
-int main()
+auto main() -> int
 {
     using namespace boost::ext::ut;
     using archcomp::cache_info;
@@ -30,12 +30,12 @@ int main()
     using test_cs::with_align_type;
     using test_cs::with_data_type;
 
-    cache_info cinfo;
 
 
-    "coordinate_storage_dim3_transform"_test = [&cinfo]()
+    "coordinate_storage_dim3_transform"_test = []()
     {
 
+        cache_info cinfo;
 
 
         auto test_transformations = [&cinfo]
