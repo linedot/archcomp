@@ -61,7 +61,9 @@ target_include_directories(archcomp PUBLIC ${project_include_dirs})
 target_link_directories(archcomp PUBLIC ${project_link_dirs})
 target_link_libraries(archcomp PUBLIC ${project_libraries})
 
+# Tests
 enable_testing()
 add_subdirectory(tests)
 
+# Documentation
 include (cmake/Doxygen.cmake)

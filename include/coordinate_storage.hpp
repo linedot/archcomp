@@ -124,10 +124,6 @@ struct coord_spec_pack
             typename ref_or_value<scalar,coord_spec_types::writeable>::type ...>
             pack_type;
 
-        /** \brief pack of pointers (used as a helper for some metaprogramming)
-         */
-        typedef std::tuple<typename first_type<scalar*,coord_spec_types>::type ...> pointer_pack_type;
-
         /** \brief constructs argument pack with the help of a pointer generator
          *
          *  \tparam ptr_tuple_type type of tuple of base pointers to be used with ptr_generator
@@ -211,28 +207,20 @@ struct transformation_index
 };
 
 /** \brief concept for a valid transformation function
- *
+ *  
+ *  \tparam T function type the concept is being applied to
+ *  \tparam scalar type of scalar being transformed
+ *  \tparam coord_spec_pack_type type of the coordinate spec pack defining which
+ *          vectors and coordinates will be transformed
  */
 template<typename T, typename scalar,  typename coord_spec_pack_type>
 concept transformer_func = requires(T func, transformation_index tidx, 
         coord_spec_pack_type coord_spec_pack,
-        typename coord_spec_pack_type::template scalar_args<scalar>::pointer_pack_type pointers)
+        typename coord_spec_pack_type::template scalar_args<scalar>::pack_type arg_pack)
 {
 
-    func(tidx, coord_spec_pack_type::template scalar_args<scalar>::construct(
-                [](auto,scalar*){return nullptr;},
-                coord_spec_pack.values,pointers));
+    func(tidx, arg_pack);
 };
-
-/** \brief concept for a valid transformation function
- *
- */
-//template<typename T, typename scalar, typename ... scalar_arg_types>
-//concept transformer_func = requires(T func, transformation_index tidx, 
-//        argument_pack<scalar, scalar_arg_types ... >&& scalar_arg_pack)
-//{
-//    func(tidx, scalar_arg_pack);
-//};
 
 /** \brief storage for multidimensional coordinate arrays/vectors (spatial coordinates, velocities, forces, etc...)
  *  \tparam scalar underlying datatype of stored elements
