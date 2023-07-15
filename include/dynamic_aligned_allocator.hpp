@@ -1,3 +1,6 @@
+#ifndef ARCHCOMP_DYNAMIC_ALIGNED_ALLOCATOR
+#define ARCHCOMP_DYNAMIC_ALIGNED_ALLOCATOR
+
 #include <cstdlib>
 #include <limits>
 #include <new>
@@ -25,6 +28,11 @@ struct dynamic_aligned_allocator
  
     template<class U>
     constexpr dynamic_aligned_allocator (const dynamic_aligned_allocator <U>& other) noexcept 
+        : alignment(other.alignment)
+    {
+    }
+    template<class U>
+    constexpr dynamic_aligned_allocator (const dynamic_aligned_allocator <U>&& other) noexcept 
         : alignment(other.alignment)
     {
     }
@@ -69,3 +77,5 @@ bool operator!=(const dynamic_aligned_allocator <T>& a1, const dynamic_aligned_a
 }
  
 } // namespace archcomp
+
+#endif // ARCHCOMP_DYNAMIC_ALIGNED_ALLOCATOR

@@ -1,18 +1,19 @@
-#include <cstdint>
-#include <functional>
-#include <initializer_list>
-#include <type_traits>
-#include <numeric>
-#include <utility>
-#include <vector>
-#include <map>
+#ifndef ARCHCOMP_COORDINATE_STORAGE
+#define ARCHCOMP_COORDINATE_STORAGE
 
 #include <cache_util.hpp>
-#include <simd_util.hpp>
-#include <dynamic_aligned_allocator.hpp>
 #include <compiler_hints.hpp>
+#include <dynamic_aligned_allocator.hpp>
+#include <simd_util.hpp>
 
-#include <fmt/format-inl.h>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <stdexcept>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace archcomp
 {
@@ -59,11 +60,122 @@ typedef std::tuple<std::size_t, std::size_t> vector_spec;
 
 /** \brief coordinate specification
  *
- *  \details first entry is the vector id, second entry is the coordinate 
- *           within that vector, third entry is whether the coordinate will
- *           be written to
  */
-typedef std::tuple<std::size_t, std::size_t, bool> coord_spec;
+template<bool rw>
+struct coord_spec
+{
+    std::size_t vector_id; ///< id of vector in the coordinate storage
+    std::size_t coord;     ///< coordinate in the vector (x=0,y=1,...)
+    constexpr static bool writeable = rw; ///< Whether this will be a writeable parameter
+};
+
+
+template<typename first, typename second>
+struct first_type
+{
+    typedef first type;
+};
+
+/** \brief arguments to be passed to a tranformation function
+ */
+template<typename scalar, typename  ... argument_types>
+struct argument_pack
+{
+    std::tuple<argument_types... > args;
+};
+
+/** \brief pack of coordinate specification
+ *
+ *  \tparam coord_spec_types types of coordinate specs, must be coord_spec<false> or 
+ *          coord_spec<true> and shouldn't be specified explicitly
+ */
+template<typename ... coord_spec_types>
+  requires(
+      (std::is_same_v<coord_spec<false>,coord_spec_types> ||
+       std::is_same_v<coord_spec<true>,coord_spec_types>) && ... )
+struct coord_spec_pack
+{
+    typedef std::tuple<coord_spec_types...> coord_specs;
+
+    coord_specs values;
+
+
+    template<typename scalar, bool rw>
+    struct ref_or_value;
+
+    template<typename scalar>
+    struct ref_or_value<scalar, true>
+    {
+        typedef scalar& type;
+    };
+
+    template<typename scalar>
+    struct ref_or_value<scalar, false>
+    {
+        typedef const scalar type;
+    };
+
+    template<typename scalar>
+    struct scalar_args 
+    {
+        /** \brief argument pack type corresponding to coordinate specification
+         */
+        typedef argument_pack<scalar,
+            typename ref_or_value<scalar,coord_spec_types::writeable>::type ...>
+            pack_type;
+
+        /** \brief pack of pointers (used as a helper for some metaprogramming)
+         */
+        typedef std::tuple<typename first_type<scalar*,coord_spec_types>::type ...> pointer_pack_type;
+
+        /** \brief constructs argument pack with the help of a pointer generator
+         *
+         *  \tparam ptr_tuple_type type of tuple of base pointers to be used with ptr_generator
+         *
+         *  \param[in] ptr_generator callable that will generate pointers to values to be packed into the argument pack.
+         *                           must accept 2 parameters - a coord_spec and a scalar* base pointer and must return a 
+         *                           scalar* pointer to the correct value calculated from those
+         *             specs tuple of coord_spec objects
+         *             ptr_tuple tuple of base pointers to be used with ptr_generator
+         *
+         * \return argument_pack to be passed to the transformation function
+         */
+        template<typename ptr_tuple_type>
+        static pack_type construct(auto ptr_generator,
+                            coord_specs specs,
+                            ptr_tuple_type ptr_tuple)
+        {
+            auto get_refs = [&] (auto&& ... specs)
+                -> decltype(pack_type::args)
+            {
+                return std::apply([&](auto&& ... ptr)
+                -> decltype(pack_type::args)
+                    {
+                        return std::tuple<typename ref_or_value<scalar,
+                            std::remove_reference<decltype(specs)>::type::writeable>::type ...>
+                        {
+                            std::forward<typename ref_or_value<scalar,
+                            std::remove_reference<decltype(specs)>::type::writeable>::type
+                            >(*ptr_generator(specs, ptr)) ...
+                        };
+                    }, std::forward<ptr_tuple_type>(ptr_tuple));
+            };
+            return {.args = std::apply(get_refs, 
+                    std::forward<coord_specs>(specs))};
+        }
+    };
+};
+
+/** \brief create a pack of coordinate specifications
+ */
+template<typename ... coord_spec_types>
+coord_spec_pack<coord_spec_types ...> make_coord_spec_pack(coord_spec_types ... coord_specs)
+{
+    return coord_spec_pack<coord_spec_types ...>
+    {
+        .values = std::make_tuple(coord_specs ...)
+    };
+};
 
 
 /** \brief creates a writeable coordinate specification
@@ -74,7 +186,7 @@ typedef std::tuple<std::size_t, std::size_t, bool> coord_spec;
  */
 constexpr auto make_rw_coord_spec (std::size_t vector_id, std::size_t coord)
 {
-    return std::make_tuple(vector_id, coord, true);
+    return coord_spec<true>{.vector_id=vector_id, .coord=coord};
 };
 
 /** \brief creates a read-only coordinate specification
@@ -85,7 +197,7 @@ constexpr auto make_rw_coord_spec (std::size_t vector_id, std::size_t coord)
  */
 constexpr auto make_ro_coord_spec (std::size_t vector_id, std::size_t coord)
 {
-    return std::make_tuple(vector_id, coord, false);
+    return coord_spec<false>{.vector_id=vector_id, .coord=coord};
 };
 
 
@@ -101,13 +213,26 @@ struct transformation_index
 /** \brief concept for a valid transformation function
  *
  */
-template<typename T, typename scalar,  typename... Args>
-concept transformer_func = requires(T func, transformation_index tidx, Args... args)
+template<typename T, typename scalar,  typename coord_spec_pack_type>
+concept transformer_func = requires(T func, transformation_index tidx, 
+        coord_spec_pack_type coord_spec_pack,
+        typename coord_spec_pack_type::template scalar_args<scalar>::pointer_pack_type pointers)
 {
-    func(tidx, args...);
-}  // TODO: maybe it's somehow possible to check whether a parameter is ro/rw and then
-   // check the type accordingly?
-  && ((std::is_same_v<scalar,Args> || std::is_same_v<scalar&,Args>) && ... );
+
+    func(tidx, coord_spec_pack_type::template scalar_args<scalar>::construct(
+                [](auto,scalar*){return nullptr;},
+                coord_spec_pack.values,pointers));
+};
+
+/** \brief concept for a valid transformation function
+ *
+ */
+//template<typename T, typename scalar, typename ... scalar_arg_types>
+//concept transformer_func = requires(T func, transformation_index tidx, 
+//        argument_pack<scalar, scalar_arg_types ... >&& scalar_arg_pack)
+//{
+//    func(tidx, scalar_arg_pack);
+//};
 
 /** \brief storage for multidimensional coordinate arrays/vectors (spatial coordinates, velocities, forces, etc...)
  *  \tparam scalar underlying datatype of stored elements
@@ -119,17 +244,6 @@ template<typename scalar, access_type coordinate_access_type>
 class coordinate_storage
 {
 public:
-
-    /** \brief provide a member type that is always the first type
-     *
-     *  \details using this with parameter packs to specify specific parameter types to
-     *           variadic templates from parameter packs of other types
-     */
-    template<typename T, typename U>
-    struct first_type_of_two
-    {
-        using type = T;
-    };
 
 
     /** \brief Create storage and allocate mempools 
@@ -145,16 +259,21 @@ public:
      *  \sa align_to,access_type,cache_info
      */
     template<typename... vector_spec_types>
-    coordinate_storage(
-            align_to    align_mempools_to = align_to::l1bank,
+    explicit coordinate_storage(
+            align_to   align_mempools_to = align_to::l1bank,
             cache_info ci = cache_info(),
             vector_spec_types... vector_specs)
         requires (std::is_same_v<vector_spec,vector_spec_types> && ...)
+                 && (0 != sizeof...(vector_spec_types))
         : 
             ci(ci),
             allocator(get_alignment(align_mempools_to, ci)),
             dims{{std::get<0>(vector_specs)...}}
     {
+        if ( (... || (0 == std::get<0>(vector_specs) || 0 == std::get<1>(vector_specs) )))
+        {
+            throw std::invalid_argument("Vector spec can't have 0 dimensions or 0 elements");
+        }
         auto create_vector = [this](std::tuple<std::size_t, std::size_t> spec)
         {
             auto dynamic_divisible_by = get_block_size(std::get<1>(spec));
@@ -164,15 +283,13 @@ public:
             if (0 != (std::get<1>(spec) % divisible_by))
             {
                 throw std::invalid_argument(
-                        fmt::format(
-                        "Element count is not a multiple of {}", divisible_by));
+                        "Element count is not a multiple of divisible_by");
             }
 
             if (0 != (std::get<1>(spec) % dynamic_divisible_by))
             {
                 throw std::invalid_argument(
-                        fmt::format(
-                        "Element count is not a multiple of {}", dynamic_divisible_by));
+                        "Element count is not a multiple of dynamic_divisible_by");
             }
 
             switch(coordinate_access_type)
@@ -242,25 +359,28 @@ public:
      *  \param[in] coords objects of type coord_spec that specify where to take the 
      *             parameters to the function from
      */
-    template<
-        typename... coord_spec_types,
-        transformer_func<
-            scalar, 
-            typename first_type_of_two<scalar&, coord_spec_types>::type ...
-            > func_type>
-    inline void transform(func_type func, coord_spec_types... coords)
-        requires (std::is_same_v<coord_spec,coord_spec_types> && ...)
+    template<typename coord_spec_pack_type,
+             transformer_func<scalar, coord_spec_pack_type> func_type>
+    inline void transform(func_type func, coord_spec_pack_type&& coord_spec_pack )
     {
-        using tidx = transformation_index;
+        typedef typename coord_spec_pack_type::template scalar_args<scalar>::pack_type value_pack_type;
+
         std::vector<
             std::reference_wrapper<
                 std::vector<scalar,dynamic_aligned_allocator<scalar>>>> pools;
 
+        constexpr std::size_t coord_count = std::tuple_size_v<typename coord_spec_pack_type::coord_specs>;
+
         std::size_t element_count;
 
-        pools.insert(pools.end(),{
-                get_mempool(
-                        pool_idx_calc(std::get<0>(coords), std::get<1>(coords)))...});
+        std::apply([&pools,this](auto&&... specs)
+                {
+                    pools.insert(pools.end(),{
+                            get_mempool(
+                                pool_idx_calc(
+                                    specs.vector_id,
+                                    specs.coord)) ... });
+                }, coord_spec_pack.values);
 
         element_count = pools[0].get().size();
 
@@ -285,13 +405,13 @@ public:
         }
 
         // This might help vectorization?
-        //assume_hint(0 == element_count % divisible_by);
+        assume_hint(0 == element_count % divisible_by);
 
         auto block_count = get_block_count(element_count, dims[0]);
         auto block_size  = get_block_size(element_count);
 
         // This might help vectorization?
-        //assume_hint(0 == block_size % block_divisible_by());
+        assume_hint(0 == block_size % block_divisible_by());
 
 
         constexpr auto block_start = [](const std::size_t block_id,
@@ -310,28 +430,38 @@ public:
         {
         case access_type::interleaved:
         {
-
-
-            std::array<scalar * __restrict__, sizeof...(coords)> pointers =
+            // Adapted from https://stackoverflow.com/questions/10604794/convert-stdtuple-to-stdarray-c11
+            // (the C++17 answer)
+            auto get_pointers = [&pools,this] (auto&& ... specs)
             {
-                {
-                     &pools[
-                         pool_idx_calc(
-                         std::get<0>(coords), 
-                         std::get<1>(coords))].get()[
-                    std::get<1>(coords)]...
-                }
+                return std::tuple{std::forward<scalar *>(
+                        &pools[
+                        pool_idx_calc(
+                            specs.vector_id,
+                            specs.coord)].get()
+                        [specs.coord]) ...};
             };
+            
+            auto pointers = std::apply(get_pointers, 
+                    std::forward<typename coord_spec_pack_type::coord_specs>(coord_spec_pack.values));
+
 
             for(std::size_t i = 0; i < element_count; i+= divisible_by)
             {
                 #pragma omp unroll
                 for(std::size_t j = 0; j < divisible_by; j++)
                 {
-                    std::size_t vi = 0;
-                    func(tidx{i+j},
-                        *(pointers[pack_incrementer<coord_spec_types>(vi)] + 
-                        (i+j)*dims[std::get<0>(coords)])...);
+                    auto pointer_generator = [i,j,this](auto spec, scalar * ptr)
+                        -> scalar *
+                    {
+                        return (ptr+(i+j)*dims[spec.vector_id]);
+                    };
+                    func(transformation_index{i+j},
+                            coord_spec_pack_type::template scalar_args<scalar>::construct(
+                            pointer_generator,
+                            coord_spec_pack.values,
+                            pointers
+                            ));
                 }
             }
             break;
@@ -342,42 +472,63 @@ public:
         case access_type::interleaved_simd8:
         case access_type::interleaved_simd_cl:
         {
+
             for(std::size_t block_id = 0; block_id < block_count; block_id++)
             {
-                std::array<scalar * __restrict__, sizeof...(coords)> pointers =
+                auto get_pointers = [&pools,block_id,block_size,block_start,this]
+                    (auto&& ... specs)
                 {
-                    {
-                         &pools[
-                             pool_idx_calc(
-                             std::get<0>(coords), 
-                             std::get<1>(coords))].get()[
-                        (block_start(block_id,block_size,
-                                    dims[std::get<0>(coords)]) +
-                        std::get<1>(coords)*block_size)]...
-                    }
+                    return std::tuple{std::forward<scalar * __restrict__>(
+                            &pools[
+                            pool_idx_calc(
+                                specs.vector_id,
+                                specs.coord)].get()
+                            [
+                            (block_start(block_id, block_size,
+                                         dims[specs.vector_id])+
+                             specs.coord*block_size)
+                            ]) ...};
                 };
+                
+                auto pointers = std::apply(get_pointers, 
+                        std::forward<typename coord_spec_pack_type::coord_specs>(coord_spec_pack.values));
                 // Just makes things worse actually
                 //#pragma omp for simd order(concurrent)
                 for(std::size_t i = 0; i < block_size; i++)
                 {
 
-                    std::size_t vi = 0;
-                    func(tidx{i+0}, *(pointers[pack_incrementer<coord_spec_types>(vi)]+i+0)...);
+                    auto pointer_generator = [i,this](auto spec, scalar * __restrict__ ptr)
+                        -> scalar * __restrict__
+                    {
+                        return (ptr+i);
+                    };
+                    value_pack_type args = coord_spec_pack_type::template scalar_args<scalar>::construct(
+                            pointer_generator,
+                            coord_spec_pack.values,
+                            pointers
+                            );
+
+                    func(transformation_index{i}, args);
                 }
             }
             break;
         }
         case access_type::separate:
         {
-            std::array<scalar * __restrict__, sizeof...(coords)> pointers =
+            auto get_pointers = [&pools,this] (auto&& ... specs)
             {
-                {
-                     &pools[
-                         pool_idx_calc(
-                         std::get<0>(coords), 
-                         std::get<1>(coords))].get()[0]...
-                }
+                return std::tuple{std::forward<scalar * __restrict__>(
+                        &pools[
+                        pool_idx_calc(
+                            specs.vector_id,
+                            specs.coord)].get()
+                        [0]) ...};
             };
+            
+            auto pointers = std::apply(get_pointers, 
+                    std::forward<typename coord_spec_pack_type::coord_specs>(coord_spec_pack.values));
+
+
             for(std::size_t i = 0; i < element_count; i+= divisible_by)
             {
 #if defined(__INTEL_LLVM_COMPILER)
@@ -389,10 +540,19 @@ public:
 #endif
                 for(std::size_t j = i; j < i+divisible_by; j++)
                 {
-                    std::size_t vi = 0;
-                    func(tidx{j},
-                     *(pointers[
-                         pack_incrementer<coord_spec_types>(vi)]+j)...);
+
+                    auto pointer_generator = [j,this](auto spec, scalar * __restrict__ ptr)
+                        -> scalar * __restrict__
+                    {
+                        return (ptr+j);
+                    };
+                    value_pack_type args = coord_spec_pack_type::template scalar_args<scalar>::construct(
+                            pointer_generator,
+                            coord_spec_pack.values,
+                            pointers
+                            );
+
+                    func(transformation_index{i}, args);
                 }
             }
             break;
@@ -515,16 +675,6 @@ private:
         }
     }
 
-
-
-    template<typename T>
-    constexpr std::size_t pack_incrementer(std::size_t& index)
-    {
-        auto result = index;
-        index++;
-        return result;
-    }
-
     cache_info ci;
 
     std::vector<std::size_t> dims;
@@ -538,3 +688,5 @@ private:
 
 
 } // namespace archcomp
+  
+#endif // ARCHCOMP_COORDINATE_STORAGE
