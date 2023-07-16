@@ -1,3 +1,6 @@
+#ifndef ARCHCOMP_SIMD_UTIL
+#define ARCHCOMP_SIMD_UTIL
+
 #include <utility>
 
 namespace archcomp
@@ -28,3 +31,5 @@ constexpr std::size_t simd_size()
 #endif // !defined(GENERATED_SIMD_SIZE)
 
 } //namespace archcomp
+
+#endif // ARCHCOMP_SIMD_UTIL

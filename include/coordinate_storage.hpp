@@ -117,7 +117,7 @@ struct coord_spec_pack
         typedef const scalar type;
     };
 
-    // TODO: I'm not sure this is the best name for this struct
+    // TODO: I'm not sure this is the best name for it
     template<typename scalar>
     struct scalar_args 
     {
@@ -129,13 +129,18 @@ struct coord_spec_pack
 
         /** \brief constructs argument pack with the help of a pointer generator
          *
-         *  \tparam ptr_tuple_type type of tuple of base pointers to be used with ptr_generator
+         *  \details The argument passed to the transformation function is constructed
+         *           with this function
          *
-         *  \param[in] ptr_generator callable that will generate pointers to values to be packed into the argument pack.
-         *                           must accept 2 parameters - a coord_spec and a scalar* base pointer and must return a 
-         *                           scalar* pointer to the correct value calculated from those
-         *             specs tuple of coord_spec objects
-         *             ptr_tuple tuple of base pointers to be used with ptr_generator
+         *  \tparam ptr_tuple_type type of tuple of base pointers to be used with
+         *          ptr_generator
+         *
+         *  \param[in] ptr_generator callable that will generate pointers to values
+         *             to be packed into the argument pack.
+         *             must accept 2 parameters - a coord_spec and a scalar* base
+         *             pointer and must return a scalar* pointer to the appropriate value
+         *  \param[in] specs tuple of coord_spec objects
+         *  \param[in] ptr_tuple tuple of base pointers to be used with ptr_generator
          *
          * \return argument_pack to be passed to the transformation function
          */
@@ -349,8 +354,10 @@ public:
      *  \param[in] func function that will be called for all elements. Must
      *             take one std::size_t index and as many "scalar"s or "scalar&"s
      *             as coordinate specs specified
-     *  \param[in] coords objects of type coord_spec that specify where to take the 
+     *  \param[in] coord_spec_pack pack containing coord_spec that specify where to take the 
      *             parameters to the function from
+     *
+     *  \sa coord_spec,coord_speck_pack,make_coord_spec_pack
      */
     template<typename coord_spec_pack_type,
              transformer_func<scalar, coord_spec_pack_type> func_type>
