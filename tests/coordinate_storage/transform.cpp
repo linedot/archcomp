@@ -13,11 +13,7 @@
 #include <utility>
 #include <vector>
 
-using tidx = archcomp::transformation_index;
 
-
-constexpr auto csrw = archcomp::make_rw_coord_spec;
-constexpr auto csro = archcomp::make_ro_coord_spec;
 
 // NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
@@ -28,6 +24,8 @@ auto main() -> int
     using archcomp::access_type;
     using archcomp::align_to;
 
+    using tidx = archcomp::transformation_index;
+
     using vspec = archcomp::vector_spec;
 
     using test_cs::all_access_types;
@@ -37,6 +35,8 @@ auto main() -> int
     using test_cs::with_align_type;
     using test_cs::with_data_type;
 
+    constexpr auto csrw = archcomp::make_rw_coord_spec;
+    constexpr auto csro = archcomp::make_ro_coord_spec;
 
 
     "coordinate_storage_dim3_transform"_test = []()
@@ -49,16 +49,6 @@ auto main() -> int
             <typename scalar>()
         {
             constexpr vspec small_vector_spec{3,4096};
-
-//            using fargs = archcomp::argument_pack<scalar,
-//                          scalar&, scalar&, scalar&,
-//                          scalar&, scalar&, scalar&,
-//                          scalar&, scalar&, scalar&>;
-//
-//            using targs = archcomp::argument_pack<scalar,
-//                          const scalar, const scalar, const scalar,
-//                          const scalar, const scalar, const scalar,
-//                          scalar&, scalar&, scalar&>;
 
             constexpr auto tspec = archcomp::make_coord_spec_pack(
                     csro(0,0),csro(0,1),csro(0,2),

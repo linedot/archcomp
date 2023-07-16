@@ -82,7 +82,7 @@ struct first_type
 
 /** \brief arguments to be passed to a tranformation function
  */
-template<typename scalar, typename  ... argument_types>
+template<typename  ... argument_types>
 struct argument_pack
 {
     std::tuple<argument_types... > args;
@@ -125,7 +125,7 @@ struct coord_spec_pack
     {
         /** \brief argument pack type corresponding to coordinate specification
          */
-        typedef argument_pack<scalar,
+        typedef argument_pack<
             typename ref_or_value<scalar,coord_spec_types::writeable>::type ...>
             pack_type;
 
