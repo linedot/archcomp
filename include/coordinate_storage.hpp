@@ -264,17 +264,20 @@ public:
         }
         auto create_vector = [this](std::tuple<std::size_t, std::size_t> spec)
         {
-            auto dynamic_divisible_by = get_block_size(std::get<1>(spec));
+            const auto& vector_dims = std::get<0>(spec);
+            const auto& vector_size = std::get<1>(spec);
+
+            auto dynamic_divisible_by = get_block_size(vector_size);
 
             // Let's assume element count is divisible by some small power of 2 so we
             // vectorize more easily
-            if (0 != (std::get<1>(spec) % divisible_by))
+            if (0 != (vector_size % divisible_by))
             {
                 throw std::invalid_argument(
                         "Element count is not a multiple of divisible_by");
             }
 
-            if (0 != (std::get<1>(spec) % dynamic_divisible_by))
+            if (0 != (vector_size % dynamic_divisible_by))
             {
                 throw std::invalid_argument(
                         "Element count is not a multiple of dynamic_divisible_by");
@@ -285,11 +288,10 @@ public:
                 // one memory pool per coordinate
                 case access_type::separate:
                 {
-                    auto dims = std::get<0>(spec);
-                    for(std::size_t i = 0 ; i< dims; i++)
+                    for(std::size_t i = 0 ; i< vector_dims; i++)
                     {
                         std::vector<scalar, decltype(allocator)> mempool(allocator);
-                        mempool.resize(sizeof(scalar)*std::get<1>(spec));
+                        mempool.resize(vector_size);
                         memory_pools.push_back(std::move(mempool));
                     }
 
@@ -305,7 +307,7 @@ public:
                 case access_type::interleaved_simd_cl:
                 {
                     std::vector<scalar, decltype(allocator)> mempool(allocator);
-                    mempool.resize(std::get<0>(spec)*sizeof(scalar)*std::get<1>(spec));
+                    mempool.resize(vector_dims*vector_size);
                     memory_pools.push_back(std::move(mempool));
 
                     std::size_t n = 0;
