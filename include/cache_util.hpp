@@ -2,8 +2,6 @@
 #define ARCHCOMP_CACHE_UTIL
 
 #include <cstdint>
-#include <string>
-#include <stdexcept>
 
 namespace archcomp
 {

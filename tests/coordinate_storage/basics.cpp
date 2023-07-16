@@ -1,12 +1,21 @@
+#include "common.hpp"
+
 #include <boost/ut.hpp>
 
 #include <cache_util.hpp>
 #include <coordinate_storage.hpp>
 
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <tuple>
+#include <typeinfo>
 #include <utility>
+#include <vector>
 
-#include "common.hpp"
 
+// ut's examples don't try-catch anything, not sure if doing so would break anything
+// NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
 {
     using namespace boost::ext::ut;

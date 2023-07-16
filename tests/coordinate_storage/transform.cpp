@@ -1,11 +1,17 @@
+#include "common.hpp"
+
 #include <boost/ut.hpp>
 
 #include <cache_util.hpp>
 #include <coordinate_storage.hpp>
 
+#include <cstddef>
+#include <cstdint>
+#include <exception>
+#include <tuple>
+#include <typeinfo>
 #include <utility>
-
-#include "common.hpp"
+#include <vector>
 
 using tidx = archcomp::transformation_index;
 
@@ -13,6 +19,7 @@ using tidx = archcomp::transformation_index;
 constexpr auto csrw = archcomp::make_rw_coord_spec;
 constexpr auto csro = archcomp::make_ro_coord_spec;
 
+// NOLINTNEXTLINE(bugprone-exception-escape)
 auto main() -> int
 {
     using namespace boost::ext::ut;

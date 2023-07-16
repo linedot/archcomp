@@ -22,6 +22,7 @@ constexpr std::size_t simd_size()
     return 128/8;
 }
 #else
+// cppcheck-suppress preprocessorErrorDirective
 #error simd_size() not implemented for the target Architecture
 #endif // defined(<Arch specific SIMD/Vector macros>)
 #endif // !defined(GENERATED_SIMD_SIZE)

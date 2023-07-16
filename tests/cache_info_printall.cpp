@@ -1,5 +1,5 @@
 #include <cache_util.hpp>
-#include <fmt/format.h>
+#include <fmt/core.h>
 
 auto main() -> int
 {

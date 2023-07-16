@@ -1,3 +1,5 @@
+// TODO: Consider exposing some sort of iterators so the storage becomes usable with smth. like std::transform? Or at least investigate if this is a good idea
+
 #ifndef ARCHCOMP_COORDINATE_STORAGE
 #define ARCHCOMP_COORDINATE_STORAGE
 
@@ -115,6 +117,7 @@ struct coord_spec_pack
         typedef const scalar type;
     };
 
+    // TODO: I'm not sure this is the best name for this struct
     template<typename scalar>
     struct scalar_args 
     {
@@ -353,15 +356,11 @@ public:
              transformer_func<scalar, coord_spec_pack_type> func_type>
     inline void transform(func_type func, coord_spec_pack_type&& coord_spec_pack )
     {
-        typedef typename coord_spec_pack_type::template scalar_args<scalar>::pack_type value_pack_type;
+        using scalar_args_type = typename coord_spec_pack_type::template scalar_args<scalar>;
+        using value_pack_type = typename scalar_args_type::pack_type;
+        using coord_spec_tuple_type = typename coord_spec_pack_type::coord_specs;
 
-        std::vector<
-            std::reference_wrapper<
-                std::vector<scalar,dynamic_aligned_allocator<scalar>>>> pools;
-
-        constexpr std::size_t coord_count = std::tuple_size_v<typename coord_spec_pack_type::coord_specs>;
-
-        std::size_t element_count;
+        std::vector<std::reference_wrapper<memory_pool_type>> pools;
 
         std::apply([&pools,this](auto&&... specs)
                 {
@@ -372,10 +371,11 @@ public:
                                     specs.coord)) ... });
                 }, coord_spec_pack.values);
 
-        element_count = pools[0].get().size();
+        std::size_t element_count = pools[0].get().size();
 
         auto elements_divide_by = 1;
 
+        // NOTE: keep an eye on this when modifying anything fundamental
         if (access_type::separate != coordinate_access_type)
         {
             elements_divide_by = dims[0];
@@ -433,7 +433,7 @@ public:
             };
             
             auto pointers = std::apply(get_pointers, 
-                    std::forward<typename coord_spec_pack_type::coord_specs>(coord_spec_pack.values));
+                    std::forward<coord_spec_tuple_type>(coord_spec_pack.values));
 
 
             for(std::size_t i = 0; i < element_count; i+= divisible_by)
@@ -481,7 +481,7 @@ public:
                 };
                 
                 auto pointers = std::apply(get_pointers, 
-                        std::forward<typename coord_spec_pack_type::coord_specs>(coord_spec_pack.values));
+                        std::forward<coord_spec_tuple_type>(coord_spec_pack.values));
                 // Just makes things worse actually
                 //#pragma omp for simd order(concurrent)
                 for(std::size_t i = 0; i < block_size; i++)
@@ -492,7 +492,7 @@ public:
                     {
                         return (ptr+i);
                     };
-                    value_pack_type args = coord_spec_pack_type::template scalar_args<scalar>::construct(
+                    value_pack_type args = scalar_args_type::construct(
                             pointer_generator,
                             coord_spec_pack.values,
                             pointers
@@ -516,7 +516,7 @@ public:
             };
             
             auto pointers = std::apply(get_pointers, 
-                    std::forward<typename coord_spec_pack_type::coord_specs>(coord_spec_pack.values));
+                    std::forward<coord_spec_tuple_type>(coord_spec_pack.values));
 
 
             for(std::size_t i = 0; i < element_count; i+= divisible_by)
@@ -536,7 +536,7 @@ public:
                     {
                         return (ptr+j);
                     };
-                    value_pack_type args = coord_spec_pack_type::template scalar_args<scalar>::construct(
+                    value_pack_type args = scalar_args_type::construct(
                             pointer_generator,
                             coord_spec_pack.values,
                             pointers
@@ -671,9 +671,9 @@ private:
 
     dynamic_aligned_allocator<scalar> allocator;
 
-    std::vector<
-        std::vector<scalar,dynamic_aligned_allocator<scalar>>>
-            memory_pools;
+    typedef std::vector<scalar, dynamic_aligned_allocator<scalar>> memory_pool_type;
+
+    std::vector<memory_pool_type> memory_pools;
 };
 
 

@@ -1,6 +1,9 @@
 #include <cache_util.hpp>
 
 #include <hwloc.h>
+#include <hwloc/bitmap.h>
+
+#include <stdexcept>
 
 archcomp::cache_info::cache_info()
 {
