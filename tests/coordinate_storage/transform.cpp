@@ -50,25 +50,29 @@ auto main() -> int
         {
             constexpr vspec small_vector_spec{3,4096};
 
-            using fargs = archcomp::argument_pack<scalar,
-                          scalar&, scalar&, scalar&,
-                          scalar&, scalar&, scalar&,
-                          scalar&, scalar&, scalar&>;
-
-            using targs = archcomp::argument_pack<scalar,
-                          const scalar, const scalar, const scalar,
-                          const scalar, const scalar, const scalar,
-                          scalar&, scalar&, scalar&>;
+//            using fargs = archcomp::argument_pack<scalar,
+//                          scalar&, scalar&, scalar&,
+//                          scalar&, scalar&, scalar&,
+//                          scalar&, scalar&, scalar&>;
+//
+//            using targs = archcomp::argument_pack<scalar,
+//                          const scalar, const scalar, const scalar,
+//                          const scalar, const scalar, const scalar,
+//                          scalar&, scalar&, scalar&>;
 
             constexpr auto tspec = archcomp::make_coord_spec_pack(
                     csro(0,0),csro(0,1),csro(0,2),
                     csro(1,0),csro(1,1),csro(1,2),
                     csrw(2,0),csrw(2,1),csrw(2,2));
 
+            using targs = typename decltype(tspec)::scalar_args<scalar>::pack_type;
+
             constexpr auto fspec = archcomp::make_coord_spec_pack(
                     csrw(0,0),csrw(0,1),csrw(0,2),
                     csrw(1,0),csrw(1,1),csrw(1,2),
                     csrw(2,0),csrw(2,1),csrw(2,2));
+
+            using fargs = typename decltype(fspec)::scalar_args<scalar>::pack_type;
 
             // I've thought about it and came to the conclustion that 
             // these short var names are better in this case
