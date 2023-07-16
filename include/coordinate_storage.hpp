@@ -1,4 +1,6 @@
 // TODO: Consider exposing some sort of iterators so the storage becomes usable with smth. like std::transform? Or at least investigate if this is a good idea
+// TODO: Not sure how useful, but I guess we could do something with std::assume_aligned?
+// TODO: This header is expensive. Look into changes to reduce compile time
 
 #ifndef ARCHCOMP_COORDINATE_STORAGE
 #define ARCHCOMP_COORDINATE_STORAGE
@@ -146,13 +148,13 @@ struct coord_spec_pack
          */
         template<typename ptr_tuple_type>
         static pack_type construct(auto ptr_generator,
-                            coord_specs specs,
+                            const coord_specs specs,
                             ptr_tuple_type ptr_tuple)
         {
-            auto get_refs = [&] (auto&& ... specs)
+            auto get_refs = [&] (const auto& ... specs)
                 -> decltype(pack_type::args)
             {
-                return std::apply([&](auto&& ... ptr)
+                return std::apply([&](const auto& ... ptr)
                 -> decltype(pack_type::args)
                     {
                         return std::tuple<typename ref_or_value<scalar,
@@ -162,10 +164,9 @@ struct coord_spec_pack
                             std::remove_reference<decltype(specs)>::type::writeable>::type
                             >(*ptr_generator(specs, ptr)) ...
                         };
-                    }, std::forward<ptr_tuple_type>(ptr_tuple));
+                    }, ptr_tuple);
             };
-            return {.args = std::apply(get_refs, 
-                    std::forward<coord_specs>(specs))};
+            return {.args = std::apply(get_refs, specs)};
         }
     };
 };
@@ -173,7 +174,7 @@ struct coord_spec_pack
 /** \brief create a pack of coordinate specifications
  */
 template<typename ... coord_spec_types>
-coord_spec_pack<coord_spec_types ...> make_coord_spec_pack(coord_spec_types ... coord_specs)
+constexpr coord_spec_pack<coord_spec_types ...> make_coord_spec_pack(coord_spec_types ... coord_specs)
 {
     return coord_spec_pack<coord_spec_types ...>
     {
@@ -361,14 +362,14 @@ public:
      */
     template<typename coord_spec_pack_type,
              transformer_func<scalar, coord_spec_pack_type> func_type>
-    inline void transform(func_type func, coord_spec_pack_type&& coord_spec_pack )
+    inline void transform(func_type func, const coord_spec_pack_type& coord_spec_pack )
     {
         using scalar_args_type = typename coord_spec_pack_type::template scalar_args<scalar>;
         using value_pack_type = typename scalar_args_type::pack_type;
         using coord_spec_tuple_type = typename coord_spec_pack_type::coord_specs;
 
+        // Get memory pools for this transform according to coordinate specs
         std::vector<std::reference_wrapper<memory_pool_type>> pools;
-
         std::apply([&pools,this](auto&&... specs)
                 {
                     pools.insert(pools.end(),{
@@ -391,6 +392,7 @@ public:
         element_count /= elements_divide_by;
         
 
+        // For transform all vectors accessed should have the same number of elements
         for (auto& pool : pools)
         {
             // separate will have same element_count, but interleaved will
@@ -404,6 +406,8 @@ public:
         // This might help vectorization?
         assume_hint(0 == element_count % divisible_by);
 
+        // blocks HERE mean chunks of contiguously stored elements of the same coordinate,
+        // see access_type
         auto block_count = get_block_count(element_count, dims[0]);
         auto block_size  = get_block_size(element_count);
 
@@ -411,6 +415,7 @@ public:
         assume_hint(0 == block_size % block_divisible_by());
 
 
+        // Why was this constexpr again?
         constexpr auto block_start = [](const std::size_t block_id,
                 const std::size_t block_size,
                 const std::size_t dims)
@@ -429,7 +434,7 @@ public:
         {
             // Adapted from https://stackoverflow.com/questions/10604794/convert-stdtuple-to-stdarray-c11
             // (the C++17 answer)
-            auto get_pointers = [&pools,this] (auto&& ... specs)
+            auto get_pointers = [&pools,this] (const auto& ... specs)
             {
                 return std::tuple{std::forward<scalar *>(
                         &pools[
@@ -439,8 +444,7 @@ public:
                         [specs.coord]) ...};
             };
             
-            auto pointers = std::apply(get_pointers, 
-                    std::forward<coord_spec_tuple_type>(coord_spec_pack.values));
+            auto pointers = std::apply(get_pointers, coord_spec_pack.values);
 
 
             for(std::size_t i = 0; i < element_count; i+= divisible_by)
@@ -473,7 +477,7 @@ public:
             for(std::size_t block_id = 0; block_id < block_count; block_id++)
             {
                 auto get_pointers = [&pools,block_id,block_size,block_start,this]
-                    (auto&& ... specs)
+                    (const auto& ... specs)
                 {
                     return std::tuple{std::forward<scalar * __restrict__>(
                             &pools[
@@ -487,10 +491,9 @@ public:
                             ]) ...};
                 };
                 
-                auto pointers = std::apply(get_pointers, 
-                        std::forward<coord_spec_tuple_type>(coord_spec_pack.values));
-                // Just makes things worse actually
-                //#pragma omp for simd order(concurrent)
+                auto pointers = std::apply(get_pointers, coord_spec_pack.values);
+                // TODO: simd pragma seems to make it worse, spend some time investigating
+                // #pragma omp simd
                 for(std::size_t i = 0; i < block_size; i++)
                 {
 
@@ -512,7 +515,7 @@ public:
         }
         case access_type::separate:
         {
-            auto get_pointers = [&pools,this] (auto&& ... specs)
+            auto get_pointers = [&pools,this] (const auto& ... specs)
             {
                 return std::tuple{std::forward<scalar * __restrict__>(
                         &pools[
@@ -522,8 +525,7 @@ public:
                         [0]) ...};
             };
             
-            auto pointers = std::apply(get_pointers, 
-                    std::forward<coord_spec_tuple_type>(coord_spec_pack.values));
+            auto pointers = std::apply(get_pointers, coord_spec_pack.values);
 
 
             for(std::size_t i = 0; i < element_count; i+= divisible_by)

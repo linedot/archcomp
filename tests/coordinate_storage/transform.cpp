@@ -48,17 +48,43 @@ auto main() -> int
         auto test_transformations = [&cinfo]
             <typename scalar>()
         {
-
             constexpr vspec small_vector_spec{3,4096};
+
+            using fargs = archcomp::argument_pack<scalar,
+                          scalar&, scalar&, scalar&,
+                          scalar&, scalar&, scalar&,
+                          scalar&, scalar&, scalar&>;
+
+            using targs = archcomp::argument_pack<scalar,
+                          const scalar, const scalar, const scalar,
+                          const scalar, const scalar, const scalar,
+                          scalar&, scalar&, scalar&>;
+
+            constexpr auto tspec = archcomp::make_coord_spec_pack(
+                    csro(0,0),csro(0,1),csro(0,2),
+                    csro(1,0),csro(1,1),csro(1,2),
+                    csrw(2,0),csrw(2,1),csrw(2,2));
+
+            constexpr auto fspec = archcomp::make_coord_spec_pack(
+                    csrw(0,0),csrw(0,1),csrw(0,2),
+                    csrw(1,0),csrw(1,1),csrw(1,2),
+                    csrw(2,0),csrw(2,1),csrw(2,2));
+
             // I've thought about it and came to the conclustion that 
             // these short var names are better in this case
             // NOLINTBEGIN(readability-identifier-length)
+            constexpr auto fill3 = []([[maybe_unused]] const tidx index,
+                    fargs outputs)
+            {
+                auto& [x1, y1, z1, x2, y2, z2, x3, y3, z3] = outputs.args;
+
+                x1 = y1 = z1 = static_cast<scalar>(1);
+                x2 = y2 = z2 = static_cast<scalar>(2);
+                x3 = y3 = z3 = static_cast<scalar>(3);
+            };
 
             constexpr auto adder3 = []([[maybe_unused]] const tidx index,
-                    archcomp::argument_pack<scalar,
-                          const scalar, const scalar, const scalar,
-                          const scalar, const scalar, const scalar,
-                          scalar&, scalar&, scalar&> inputs)
+                     targs inputs)
             {
                 auto& [x1, y1, z1, x2, y2, z2, xout, yout, zout] = inputs.args;
 
@@ -68,10 +94,7 @@ auto main() -> int
             };
 
             constexpr auto euclidean3 = []([[maybe_unused]] const tidx index,
-                    archcomp::argument_pack<scalar,
-                          const scalar, const scalar, const scalar,
-                          const scalar, const scalar, const scalar,
-                          scalar&, scalar&, scalar&> inputs)
+                    targs inputs)
             {
                 auto& [x1, y1, z1, x2, y2, z2, xout, yout, zout] = inputs.args;
 
@@ -79,10 +102,7 @@ auto main() -> int
             };
 
             constexpr auto compute3 = []([[maybe_unused]] const tidx index,
-                    archcomp::argument_pack<scalar,
-                          const scalar, const scalar, const scalar,
-                          const scalar, const scalar, const scalar,
-                          scalar&, scalar&, scalar&> inputs)
+                    targs inputs)
             {
                 auto& [x1, y1, z1, x2, y2, z2, xout, yout, zout] = inputs.args;
 
@@ -96,33 +116,28 @@ auto main() -> int
             };
             // NOLINTEND(readability-identifier-length)
 
-            auto test_adder_euclidean_compute = [&cinfo,small_vector_spec,adder3,euclidean3,compute3]
+            auto test_adder_euclidean_compute = [&cinfo,small_vector_spec,
+                 fill3,adder3,euclidean3,compute3,
+                 fspec,tspec]
                 <access_type access, align_to align>()
             {
-                expect(nothrow([&cinfo,small_vector_spec,adder3,euclidean3,compute3]
+                expect(nothrow([&cinfo,small_vector_spec,
+                            fill3,adder3,euclidean3,compute3,
+                            fspec,tspec]
                     {
+
                         auto storage = coordinate_storage<scalar, access>(align, cinfo, 
                                 small_vector_spec, 
                                 small_vector_spec, 
                                 small_vector_spec);
 
-                        storage.transform(adder3,
-                                archcomp::make_coord_spec_pack(
-                                csro(0,0),csro(0,1),csro(0,2),
-                                csro(1,0),csro(1,1),csro(1,2),
-                                csrw(2,0),csrw(2,1),csrw(2,2)));
+                        storage.transform(fill3, fspec);
 
-                        storage.transform(euclidean3, 
-                                archcomp::make_coord_spec_pack(
-                                csro(0,0),csro(0,1),csro(0,2),
-                                csro(1,0),csro(1,1),csro(1,2),
-                                csrw(2,0),csrw(2,1),csrw(2,2)));
+                        storage.transform(adder3, tspec);
 
-                        storage.transform(compute3, 
-                                archcomp::make_coord_spec_pack(
-                                csro(0,0),csro(0,1),csro(0,2),
-                                csro(1,0),csro(1,1),csro(1,2),
-                                csrw(2,0),csrw(2,1),csrw(2,2)));
+                        storage.transform(euclidean3, tspec);
+
+                        storage.transform(compute3, tspec);
                     }))
                     << "scalar: " << typeid(scalar).name()
                     << "; align: " << static_cast<std::uint64_t>(align)
