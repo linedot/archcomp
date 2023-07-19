@@ -53,6 +53,27 @@ namespace test_cs
          std::uint64_t, std::uint32_t, std::uint16_t, std::uint8_t,
          std::int64_t, std::int32_t, std::int16_t, std::int8_t>{};
 
+    template<typename T>
+    constexpr std::string_view type_to_string();
+
+    #define DOTYPE(x)\
+    template<>\
+    constexpr std::string_view type_to_string<x>()\
+    {\
+        return #x;\
+    }
+    DOTYPE(double)
+    DOTYPE(float)
+    DOTYPE(std::uint64_t)
+    DOTYPE(std::uint32_t)
+    DOTYPE(std::uint16_t)
+    DOTYPE(std::uint8_t)
+    DOTYPE(std::int64_t)
+    DOTYPE(std::int32_t)
+    DOTYPE(std::int16_t)
+    DOTYPE(std::int8_t)
+    #undef DOTYPE
+
     // std::remove_const is in type_traits but it's a heavy header, so let's avoid it here
     template<typename T> struct remove_const {typedef T type;};
     template<typename T> struct remove_const<const T> {typedef T type;};

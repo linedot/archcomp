@@ -8,8 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <string>
 #include <tuple>
-#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -34,20 +34,21 @@ auto main() -> int
     using test_cs::with_access_type;
     using test_cs::with_align_type;
     using test_cs::with_data_type;
+    using test_cs::type_to_string;
 
     constexpr auto csrw = archcomp::make_rw_coord_spec;
     constexpr auto csro = archcomp::make_ro_coord_spec;
 
-
-    "coordinate_storage_dim3_transform"_test = []()
+    auto transform_test = []<typename scalar>()
     {
 
-        cache_info cinfo;
-
-
-        auto test_transformations = [&cinfo]
-            <typename scalar>()
+        test("coordinate_storage_transform<" 
+                + std::string(type_to_string<scalar>()) + ">" ) = []()
         {
+
+            cache_info cinfo;
+
+
             constexpr vspec small_vector_spec{3,4096};
 
             constexpr auto tspec = archcomp::make_coord_spec_pack(
@@ -129,11 +130,15 @@ auto main() -> int
 
                         storage.transform(adder3, tspec);
 
+                        storage.transform(fill3, fspec);
+
                         storage.transform(euclidean3, tspec);
+
+                        storage.transform(fill3, fspec);
 
                         storage.transform(compute3, tspec);
                     }))
-                    << "scalar: " << typeid(scalar).name()
+                    << "scalar: " << type_to_string<scalar>()
                     << "; align: " << static_cast<std::uint64_t>(align)
                     << "; access: " << static_cast<std::uint64_t>(access);
             };
@@ -143,10 +148,10 @@ auto main() -> int
                     std::tuple_size_v<decltype(all_access_types)>>{},
                     test_adder_euclidean_compute);
         };
-        
-        with_data_type(std::make_index_sequence<
-                std::tuple_size_v<decltype(data_types)>>{},
-                test_transformations);
-
     };
+
+
+    with_data_type(std::make_index_sequence<
+            std::tuple_size_v<decltype(data_types)>>{},
+            transform_test);
 }
