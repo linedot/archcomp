@@ -360,9 +360,10 @@ public:
      *
      *  \sa coord_spec,coord_speck_pack,make_coord_spec_pack
      */
-    template<typename coord_spec_pack_type,
-             transformer_func<scalar, coord_spec_pack_type> func_type>
-    inline void transform(func_type func, const coord_spec_pack_type& coord_spec_pack )
+    template<typename coord_spec_pack_type>
+    inline void transform(
+            transformer_func<scalar, coord_spec_pack_type> auto func,
+            const coord_spec_pack_type& coord_spec_pack)
     {
         using scalar_args_type = typename coord_spec_pack_type::template scalar_args<scalar>;
         using value_pack_type = typename scalar_args_type::pack_type;
