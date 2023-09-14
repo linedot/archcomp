@@ -74,11 +74,11 @@ struct coord_spec
 };
 
 
-template<typename first, typename second>
-struct first_type
-{
-    typedef first type;
-};
+//template<typename first, typename second>
+//struct first_type
+//{
+//    typedef first type;
+//};
 
 /** \brief arguments to be passed to a tranformation function
  */

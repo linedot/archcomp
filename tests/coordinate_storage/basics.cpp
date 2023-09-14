@@ -5,13 +5,10 @@
 #include <cache_util.hpp>
 #include <coordinate_storage.hpp>
 
-#include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <tuple>
 #include <typeinfo>
 #include <utility>
-#include <vector>
 
 
 // ut's examples don't try-catch anything, not sure if doing so would break anything
