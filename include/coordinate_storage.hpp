@@ -494,7 +494,7 @@ public:
                 
                 auto pointers = std::apply(get_pointers, coord_spec_pack.values);
                 // TODO: simd pragma seems to make it worse, spend some time investigating
-                // #pragma omp simd
+                #pragma omp simd
                 for(std::size_t i = 0; i < block_size; i++)
                 {
 

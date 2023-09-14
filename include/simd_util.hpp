@@ -2,6 +2,7 @@
 #define ARCHCOMP_SIMD_UTIL
 
 #include <utility>
+#include <compiler_hints.hpp>
 
 namespace archcomp
 {
@@ -23,6 +24,44 @@ constexpr std::size_t simd_size()
 constexpr std::size_t simd_size()
 {
     return 128/8;
+}
+#elif defined(__ARM_SVE)
+std::size_t simd_size()
+{
+    std::size_t  byte_size = 0;
+    __asm__ volatile(
+            "incb %[byte_size]\n\t"
+            : [byte_size] "=r" (byte_size)
+            :
+            :
+            );
+    assume_hint(byte_size >= 128/8);
+    return byte_size;
+}
+#elif defined(__riscv_vector)
+std::size_t simd_size()
+{
+    std::size_t  byte_size = 0;
+    __asm__ volatile(
+#if defined(RVV_OVERRIDE_VLEN)
+#define SPSP(x) #x
+#define SPS(x) SPSP(x)
+            "mov t0, " SPS(RVV_OVERRIDE_VLEN) "\n\t"
+#undef SPS
+#undef SPSP
+            "vsetvli %[byte_size], t0, e8, m1, ta, ma\n\t"
+#else
+            "vsetvli %[byte_size], zero, e8, m1, ta, ma\n\t"
+#endif
+            : [byte_size] "=r" (byte_size)
+            :
+            :
+#if defined(RVV_OVERRIDE_VLEN)
+            "t0"
+#endif
+            );
+    assume_hint(byte_size >= 128/8);
+    return byte_size;
 }
 #else
 // cppcheck-suppress preprocessorErrorDirective
